@@ -12,36 +12,68 @@ const uint32_t COLORS[] = {
     0xA52A2A};
 
 WordClock::WordClock(ClockDisplayHAL *clockDisplayHAL, NetworkManager *networkManager, GifPlayer *gifPlayer)
-    : clockDisplayHAL(clockDisplayHAL), networkManager(networkManager), gifPlayer(gifPlayer), lastHour(-1), allLastHighlightedWords(""), gifDownloaded(false) {}
+    : lastHour(-1), allLastHighlightedWords(""), clockDisplayHAL(clockDisplayHAL), networkManager(networkManager), gifPlayer(gifPlayer), gifDownloaded(false) {}
 
 void WordClock::setup()
 {
+    // Initialize WordClock by ensuring the GIF is available.
+    SERIAL_PRINTLN("WordClock.setup: preparing GIF...");
     downloadGIF();
 }
 
 void WordClock::downloadGIF()
 {
-    if (!gifDownloaded)
+    if (gifDownloaded)
     {
-        const char *gifUrl = "https://raw.githubusercontent.com/johniak/word-clock/refs/heads/main/raspberry-pi/heart_art_small.gif";
-        if (networkManager->downloadGIF(gifUrl))
+        SERIAL_PRINTLN("WordClock.downloadGIF: GIF already loaded, skipping.");
+        return;
+    }
+
+#ifdef ARDUINO_ARCH_ESP8266
+    // On ESP8266 we rely on the locally flashed GIF to avoid fragile HTTPS downloads.
+    if (networkManager->getGifBufferSize() == 0 || networkManager->getGifBuffer() == nullptr)
+    {
+        if (!networkManager->loadGIFFromSPIFFS("/heart_art_small.gif"))
         {
-            uint8_t *gifBuffer = networkManager->getGifBuffer();
-            size_t gifSize = networkManager->getGifBufferSize();
-            if (gifSize > 0 && gifBuffer != nullptr)
-            {
-                if (gifPlayer->loadGIF(gifBuffer, gifSize))
-                {
-                    gifDownloaded = true;
-                    SERIAL_PRINTLN("GIF downloaded and loaded successfully.");
-                }
-            }
-        }
-        else
-        {
-            SERIAL_PRINTLN("Failed to download GIF.");
+            SERIAL_PRINTLN("Failed to load GIF from SPIFFS.");
+            return;
         }
     }
+
+    uint8_t *gifBuffer = networkManager->getGifBuffer();
+    size_t gifSize = networkManager->getGifBufferSize();
+    if (gifSize > 0 && gifBuffer != nullptr && gifPlayer->loadGIF(gifBuffer, gifSize))
+    {
+        gifDownloaded = true;
+        SERIAL_PRINT("GIF loaded from SPIFFS. Size=");
+        SERIAL_PRINTLN(gifSize);
+    }
+    else
+    {
+        SERIAL_PRINTLN("Failed to load GIF from buffer on ESP8266.");
+    }
+#else
+    const char *gifUrl = "https://raw.githubusercontent.com/johniak/word-clock/refs/heads/main/raspberry-pi/heart_art_small.gif";
+    SERIAL_PRINTLN("WordClock.downloadGIF: attempting remote download...");
+    if (networkManager->downloadGIF(gifUrl))
+    {
+        uint8_t *gifBuffer = networkManager->getGifBuffer();
+        size_t gifSize = networkManager->getGifBufferSize();
+        if (gifSize > 0 && gifBuffer != nullptr)
+        {
+            if (gifPlayer->loadGIF(gifBuffer, gifSize))
+            {
+                gifDownloaded = true;
+                SERIAL_PRINT("GIF downloaded and loaded successfully. Size=");
+                SERIAL_PRINTLN(gifSize);
+            }
+        }
+    }
+    else
+    {
+        SERIAL_PRINTLN("Failed to download GIF.");
+    }
+#endif
 }
 
 void WordClock::highlightWord(const String &word, uint32_t color)
@@ -98,6 +130,8 @@ void WordClock::displayTime()
         lastHour = hour;
         if (gifDownloaded)
         {
+            SERIAL_PRINT("Top of the hour. Playing GIF for hour ");
+            SERIAL_PRINTLN(hour);
             gifPlayer->playGIF(4000);
         }
         clockDisplayHAL->clearPixels(false);
@@ -136,6 +170,9 @@ void WordClock::displayTime()
 
     if (allLastHighlightedWords != allHighlightedWords)
     {
+        // Log the set of words being shown to help debug matrix mapping.
+        SERIAL_PRINT("Words: ");
+        SERIAL_PRINTLN(allHighlightedWords);
         clockDisplayHAL->show();
         allLastHighlightedWords = allHighlightedWords;
     }

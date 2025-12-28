@@ -1,4 +1,5 @@
 #include "GifPlayer.h"
+#include "SerialHelper.h"
 #define BRIGHT_SHIFT 0
 
 GifPlayer *GifPlayer::instance = nullptr;
@@ -8,6 +9,8 @@ GifPlayer::GifPlayer(ClockDisplayHAL *clockDisplayHAL)
 {
     gif.begin(GIF_PALETTE_RGB888);
     instance = this;
+    // Log player initialization for diagnostics.
+    SERIAL_PRINTLN("GifPlayer initialized.");
 }
 
 void GifPlayer::GIFDraw(GIFDRAW *pDraw)
@@ -66,13 +69,19 @@ void GifPlayer::GIFDraw(GIFDRAW *pDraw)
 
 bool GifPlayer::loadGIF(uint8_t *gifBuffer, size_t gifSize)
 {
+    // Attempt to open the GIF from memory; log the outcome and size.
     int rc = gif.open(gifBuffer, gifSize, GIFDraw);
+    SERIAL_PRINT("GifPlayer.loadGIF: open rc=");
+    SERIAL_PRINTLN(rc);
     return (rc != 0);
 }
 
 void GifPlayer::playGIF(unsigned long durationMs)
 {
     unsigned long startTime = millis();
+    unsigned long frames = 0;
+    SERIAL_PRINT("GifPlayer.playGIF: start, durationMs=");
+    SERIAL_PRINTLN(durationMs);
 
     while (millis() - startTime < durationMs)
     {
@@ -80,7 +89,13 @@ void GifPlayer::playGIF(unsigned long durationMs)
         {
             gif.reset();
         }
+        else
+        {
+            frames++;
+        }
     }
 
     gif.close();
+    SERIAL_PRINT("GifPlayer.playGIF: end, frames=");
+    SERIAL_PRINTLN(frames);
 }
