@@ -13,6 +13,7 @@ public:
     ClockDisplayHAL(uint8_t pin, uint8_t brightness);
     Adafruit_NeoPixel pixels;
     void setup();
+    void setBrightness(uint8_t brightness);
     void displayWord(const String &word, uint32_t color);
     void setPixel(uint8_t x, uint8_t y, uint32_t color);
     void clearPixels(bool show = true);

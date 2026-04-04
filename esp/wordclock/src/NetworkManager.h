@@ -30,7 +30,9 @@ private:
     long gmtOffset_sec;
     int daylightOffset_sec;
     unsigned long lastSyncTime;
+    unsigned long lastReconnectAttempt;
     const unsigned long syncInterval = 86400000;
+    const unsigned long reconnectInterval = 30000; // retry WiFi every 30s
     uint8_t *gifBuffer = nullptr;
     size_t gifBufferSize = 0;
     bool fsMounted = false;

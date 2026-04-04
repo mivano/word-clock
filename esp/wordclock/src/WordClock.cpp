@@ -12,7 +12,7 @@ const uint32_t COLORS[] = {
     0xA52A2A};
 
 WordClock::WordClock(ClockDisplayHAL *clockDisplayHAL, NetworkManager *networkManager, GifPlayer *gifPlayer)
-    : lastHour(-1), allLastHighlightedWords(""), clockDisplayHAL(clockDisplayHAL), networkManager(networkManager), gifPlayer(gifPlayer), gifDownloaded(false) {}
+    : lastHour(-1), currentBrightness(DAY_BRIGHTNESS), allLastHighlightedWords(""), clockDisplayHAL(clockDisplayHAL), networkManager(networkManager), gifPlayer(gifPlayer), gifDownloaded(false) {}
 
 void WordClock::setup()
 {
@@ -115,13 +115,29 @@ uint32_t WordClock::getRandomColor()
     return COLORS[index];
 }
 
+void WordClock::updateBrightness(int hour24)
+{
+    bool isNight = (hour24 >= NIGHT_START_HOUR || hour24 < NIGHT_END_HOUR);
+    uint8_t target = isNight ? NIGHT_BRIGHTNESS : DAY_BRIGHTNESS;
+    if (target != currentBrightness)
+    {
+        currentBrightness = target;
+        clockDisplayHAL->setBrightness(target);
+        SERIAL_PRINT("Brightness set to: ");
+        SERIAL_PRINTLN(target);
+    }
+}
+
 void WordClock::displayTime()
 {
     struct tm currentTime = networkManager->getLocalTimeStruct();
-    int hour = currentTime.tm_hour % 12;
+    int hour24 = currentTime.tm_hour;
+    int hour = hour24 % 12;
     if (hour == 0)
         hour = 12;
     int minute = currentTime.tm_min;
+
+    updateBrightness(hour24);
 
     clockDisplayHAL->clearPixels(false);
 
@@ -136,6 +152,10 @@ void WordClock::displayTime()
         }
         clockDisplayHAL->clearPixels(false);
     }
+
+    // Seed random from the current 5-minute interval so colors stay
+    // stable within each interval and only change when the time changes.
+    randomSeed(hour24 * 100 + minute / 5);
 
     highlightWord("IT", getRandomColor());
     highlightWord("IS", getRandomColor());
@@ -170,7 +190,6 @@ void WordClock::displayTime()
 
     if (allLastHighlightedWords != allHighlightedWords)
     {
-        // Log the set of words being shown to help debug matrix mapping.
         SERIAL_PRINT("Words: ");
         SERIAL_PRINTLN(allHighlightedWords);
         clockDisplayHAL->show();

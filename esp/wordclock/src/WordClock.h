@@ -5,6 +5,7 @@
 #include "ClockDisplayHAL.h"
 #include "NetworkManager.h"
 #include "GifPlayer.h"
+#include "config.h"
 
 class WordClock
 {
@@ -15,6 +16,7 @@ public:
 
 private:
     int lastHour;
+    uint8_t currentBrightness;
     String allLastHighlightedWords;
     ClockDisplayHAL *clockDisplayHAL;
     NetworkManager *networkManager;
@@ -22,6 +24,7 @@ private:
     bool gifDownloaded;
 
     void downloadGIF();
+    void updateBrightness(int hour24);
     void highlightWord(const String &word, uint32_t color = 0xFFFFFF);
     String getMinutesWord(int minute);
     uint32_t getRandomColor();

@@ -10,7 +10,7 @@
 #define MAX_GIF_SIZE 32768 // 32KB limit
 
 NetworkManager::NetworkManager(const char *ssid, const char *password, long gmtOffset_sec, int daylightOffset_sec)
-    : ssid(ssid), password(password), gmtOffset_sec(gmtOffset_sec), daylightOffset_sec(daylightOffset_sec), lastSyncTime(0), gifBuffer(nullptr), gifBufferSize(0) {}
+    : ssid(ssid), password(password), gmtOffset_sec(gmtOffset_sec), daylightOffset_sec(daylightOffset_sec), lastSyncTime(0), lastReconnectAttempt(0), gifBuffer(nullptr), gifBufferSize(0) {}
 
 void NetworkManager::setup()
 {
@@ -28,6 +28,19 @@ void NetworkManager::setup()
 void NetworkManager::update()
 {
     unsigned long currentMillis = millis();
+
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        if (currentMillis - lastReconnectAttempt >= reconnectInterval)
+        {
+            lastReconnectAttempt = currentMillis;
+            SERIAL_PRINTLN("WiFi lost, reconnecting...");
+            WiFi.disconnect();
+            WiFi.begin(ssid, password);
+        }
+        return;
+    }
+
     if (currentMillis - lastSyncTime >= syncInterval)
     {
         syncTimeWithNTP();

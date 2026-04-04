@@ -33,9 +33,15 @@ ClockDisplayHAL::ClockDisplayHAL(uint8_t pin, uint8_t brightness)
 
 void ClockDisplayHAL::setup()
 {
-    pixels.setBrightness(255);
+    pixels.setBrightness(brightness);
     pixels.begin();
     pixels.show();
+}
+
+void ClockDisplayHAL::setBrightness(uint8_t b)
+{
+    brightness = b;
+    pixels.setBrightness(b);
 }
 
 void ClockDisplayHAL::displayWord(const String &word, uint32_t color)
