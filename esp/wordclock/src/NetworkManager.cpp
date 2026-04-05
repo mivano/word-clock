@@ -1,11 +1,12 @@
 #include "NetworkManager.h"
 #include "SerialHelper.h"
+#include "config.h"
 
 #ifdef ARDUINO_ARCH_ESP8266
     #include <LittleFS.h>
     #include <FS.h>
 #endif
-#include <stdlib.h> // setenv
+#include <stdlib.h>
 
 #define MAX_GIF_SIZE 32768 // 32KB limit
 
@@ -83,6 +84,13 @@ void NetworkManager::syncTimeWithNTP()
 
 struct tm NetworkManager::getLocalTimeStruct()
 {
+    // Re-apply timezone before every read — the ESP8266 SNTP subsystem
+    // can clear/overwrite the TZ env var during periodic background re-syncs.
+    #ifdef TIMEZONE
+        setenv("TZ", TIMEZONE, 1);
+        tzset();
+    #endif
+
     struct tm timeinfo;
     if (getLocalTime(&timeinfo))
     {
